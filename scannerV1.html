@@ -1,266 +1,739 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sales Scanner - V1</title>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<style>
-  body { font-family: 'Segoe UI', sans-serif; padding: 15px; background: #f4f6f8; color: #333; }
-  h2 { text-align: center; color: #1976d2; margin-bottom: 10px; }
-  button, input[type="date"] { padding: 8px 12px; margin: 5px 0; border-radius: 6px; border: none; cursor: pointer; }
-  button { background: #1976d2; color: white; font-weight: 500; transition: 0.3s; }
-  button:hover { background: #1565c0; }
-  #reader { width: 100%; max-width: 400px; margin: 10px auto; display: none; border-radius: 10px; overflow: hidden; }
-  #errorBox { display: none; background: #ffe5e5; border: 1px solid #ff6b6b; color: #b30000; padding: 10px; border-radius: 6px; margin-bottom: 10px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; border-radius: 6px; overflow: hidden; }
-  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 14px; }
-  th { background: #e3f2fd; }
-  .date-section { background: #fff; margin-top: 15px; padding: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-  .summary { text-align: right; font-weight: 600; padding-top: 6px; color: #444; }
-  .delete-btn { background: #ff5252; color: white; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
-  .delete-btn:hover { background: #d32f2f; }
-  .toolbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 10px; }
-  .download-section { text-align: center; margin-top: 10px; }
-  .calendar-btn { display: flex; align-items: center; gap: 5px; background: #43a047; }
-  .calendar-btn:hover { background: #388e3c; }
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title> Sales Scanner </title>
+	<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+	<style>
+		/* Modern CSS Variables */
+		:root {
+			--primary-color: #6366f1;
+			--primary-dark: #4f46e5;
+			--secondary-color: #10b981;
+			--secondary-dark: #059669;
+			--danger-color: #ef4444;
+			--danger-dark: #dc2626;
+			--warning-color: #f59e0b;
+			--success-color: #10b981;
+			--background: #f8fafc;
+			--surface: #ffffff;
+			--surface-elevated: #ffffff;
+			--text-primary: #1e293b;
+			--text-secondary: #64748b;
+			--border-color: #e2e8f0;
+			--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+			--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+			--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+			--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+			--radius-sm: 0.375rem;
+			--radius-md: 0.5rem;
+			--radius-lg: 0.75rem;
+			--radius-xl: 1rem;
+		}
 
-  /* ---------- Modal ---------- */
-  #confirmModal {
-    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6); justify-content: center; align-items: center;
-  }
-  .modal-content {
-    background: white; padding: 20px; border-radius: 10px; text-align: center;
-    width: 90%; max-width: 350px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-  }
-  .modal-content h3 { margin-bottom: 8px; color: #1976d2; }
-  .modal-btns { display: flex; justify-content: space-between; margin-top: 15px; }
-  .modal-btns button { flex: 1; margin: 0 5px; padding: 10px; font-weight: 600; }
-  .confirm { background: #43a047; }
-  .confirm:hover { background: #388e3c; }
-  .cancel { background: #f44336; }
-  .cancel:hover { background: #d32f2f; }
+		/* Reset and Base Styles */
+		* {
+			box-sizing: border-box;
+		}
 
-  @media (max-width: 600px) {
-    table, th, td { font-size: 12px; }
-    .toolbar { flex-direction: column; align-items: center; }
-  }
-</style>
+		body {
+			font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+			line-height: 1.6;
+			padding: 1.5rem;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+			color: var(--text-primary);
+			margin: 0;
+		}
+
+		/* Main Container */
+		.container {
+			max-width: 1200px;
+			margin: 0 auto;
+			background: var(--surface);
+			border-radius: var(--radius-xl);
+			box-shadow: var(--shadow-xl);
+			overflow: hidden;
+			backdrop-filter: blur(10px);
+		}
+
+		/* Header */
+		h2 {
+			text-align: center;
+			color: var(--primary-color);
+			margin: 0;
+			padding: 2rem 1.5rem 1rem;
+			font-size: 2.5rem;
+			font-weight: 700;
+			background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+			-webkit-background-clip: text;
+			-webkit-text-fill-color: transparent;
+			background-clip: text;
+		}
+
+		/* Content Area */
+		.content {
+			padding: 1.5rem;
+		}
+
+		/* Error Box */
+		#errorBox {
+			display: none;
+			background: linear-gradient(135deg, #fef2f2, #fee2e2);
+			border: 1px solid #fecaca;
+			color: #dc2626;
+			padding: 1rem;
+			border-radius: var(--radius-lg);
+			margin-bottom: 1.5rem;
+			font-weight: 500;
+			box-shadow: var(--shadow-sm);
+			animation: slideIn 0.3s ease-out;
+		}
+
+		@keyframes slideIn {
+			from {
+				opacity: 0;
+				transform: translateY(-10px);
+			}
+
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		/* Buttons */
+		button {
+			background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+			color: white;
+			border: none;
+			padding: 0.75rem 1.5rem;
+			border-radius: var(--radius-md);
+			font-size: 0.875rem;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.2s ease;
+			box-shadow: var(--shadow-sm);
+			position: relative;
+			overflow: hidden;
+		}
+
+		button::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: -100%;
+			width: 100%;
+			height: 100%;
+			background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+			transition: left 0.5s;
+		}
+
+		button:hover::before {
+			left: 100%;
+		}
+
+		button:hover {
+			transform: translateY(-2px);
+			box-shadow: var(--shadow-lg);
+		}
+
+		button:active {
+			transform: translateY(0);
+		}
+
+		/* Input Fields */
+		input,
+		input[type="date"] {
+			width: 100%;
+			padding: 0.75rem 1rem;
+			border: 2px solid var(--border-color);
+			border-radius: var(--radius-md);
+			font-size: 0.875rem;
+			transition: all 0.2s ease;
+			background: var(--surface);
+			color: var(--text-primary);
+		}
+
+		input:focus {
+			outline: none;
+			border-color: var(--primary-color);
+			box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+		}
+
+		/* QR Reader */
+		#reader {
+			width: 100%;
+			max-width: 400px;
+			margin: 1.5rem auto;
+			display: none;
+			border-radius: var(--radius-xl);
+			overflow: hidden;
+			box-shadow: var(--shadow-lg);
+			border: 3px solid var(--primary-color);
+		}
+
+		/* Toolbar */
+		.toolbar {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: center;
+			gap: 1rem;
+			margin-bottom: 2rem;
+		}
+
+		/* Manual Entry Section */
+		.manual-entry {
+			background: var(--surface-elevated);
+			padding: 1.5rem;
+			border-radius: var(--radius-xl);
+			margin-bottom: 1.5rem;
+			box-shadow: var(--shadow-md);
+			border: 1px solid var(--border-color);
+		}
+
+		.manual-entry h3 {
+			margin: 0 0 1rem 0;
+			color: var(--text-primary);
+			font-size: 1.25rem;
+			font-weight: 600;
+		}
+
+		.manual-entry .input-group {
+			display: grid;
+			grid-template-columns: 1fr 1fr auto;
+			gap: 1rem;
+			align-items: end;
+		}
+
+		/* Download Section */
+		.download-section {
+			text-align: center;
+			margin: 2rem 0;
+			padding: 1.5rem;
+			background: var(--surface-elevated);
+			border-radius: var(--radius-xl);
+			box-shadow: var(--shadow-md);
+			border: 1px solid var(--border-color);
+		}
+
+		.download-section .input-group {
+			display: flex;
+			gap: 1rem;
+			justify-content: center;
+			align-items: center;
+			flex-wrap: wrap;
+		}
+
+		.calendar-btn {
+			background: linear-gradient(135deg, var(--secondary-color), var(--secondary-dark));
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+		}
+
+		.calendar-btn:hover {
+			background: linear-gradient(135deg, var(--secondary-dark), #047857);
+		}
+
+		/* Tables */
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-top: 1rem;
+			background: var(--surface);
+			border-radius: var(--radius-lg);
+			overflow: hidden;
+			box-shadow: var(--shadow-sm);
+		}
+
+		th,
+		td {
+			padding: 1rem;
+			text-align: center;
+			font-size: 0.875rem;
+			border-bottom: 1px solid var(--border-color);
+		}
+
+		th {
+			background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+			font-weight: 600;
+			color: var(--text-primary);
+		}
+
+		tr:hover {
+			background: #f8fafc;
+		}
+
+		/* Date Sections */
+		.date-section {
+			background: var(--surface-elevated);
+			margin-top: 1.5rem;
+			padding: 1.5rem;
+			border-radius: var(--radius-xl);
+			box-shadow: var(--shadow-md);
+			border: 1px solid var(--border-color);
+			transition: all 0.2s ease;
+		}
+
+		.date-section:hover {
+			box-shadow: var(--shadow-lg);
+		}
+
+		.date-section h3 {
+			margin: 0 0 1rem 0;
+			color: var(--primary-color);
+			font-size: 1.5rem;
+			font-weight: 700;
+		}
+
+		.summary {
+			text-align: right;
+			font-weight: 700;
+			padding-top: 1rem;
+			color: var(--text-primary);
+			font-size: 1.125rem;
+			background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+			padding: 1rem;
+			border-radius: var(--radius-md);
+			margin-top: 1rem;
+		}
+
+		/* Delete Button */
+		.delete-btn {
+			background: linear-gradient(135deg, var(--danger-color), var(--danger-dark));
+			color: white;
+			border: none;
+			padding: 0.5rem 0.75rem;
+			border-radius: var(--radius-sm);
+			cursor: pointer;
+			font-size: 0.75rem;
+			transition: all 0.2s ease;
+		}
+
+		.delete-btn:hover {
+			background: linear-gradient(135deg, var(--danger-dark), #b91c1c);
+			transform: scale(1.05);
+		}
+
+		/* Modal */
+		#confirmModal {
+			display: none;
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.6);
+			backdrop-filter: blur(4px);
+			justify-content: center;
+			align-items: center;
+			z-index: 1000;
+			animation: fadeIn 0.3s ease-out;
+		}
+
+		@keyframes fadeIn {
+			from {
+				opacity: 0;
+			}
+
+			to {
+				opacity: 1;
+			}
+		}
+
+		.modal-content {
+			background: var(--surface);
+			padding: 2rem;
+			border-radius: var(--radius-xl);
+			text-align: center;
+			width: 90%;
+			max-width: 400px;
+			box-shadow: var(--shadow-xl);
+			animation: slideUp 0.3s ease-out;
+		}
+
+		@keyframes slideUp {
+			from {
+				opacity: 0;
+				transform: translateY(20px);
+			}
+
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		.modal-content h3 {
+			margin-bottom: 1rem;
+			color: var(--primary-color);
+			font-size: 1.5rem;
+			font-weight: 700;
+		}
+
+		.modal-btns {
+			display: flex;
+			gap: 1rem;
+			margin-top: 1.5rem;
+		}
+
+		.modal-btns button {
+			flex: 1;
+			padding: 0.75rem 1rem;
+		}
+
+		.confirm {
+			background: linear-gradient(135deg, var(--secondary-color), var(--secondary-dark));
+		}
+
+		.confirm:hover {
+			background: linear-gradient(135deg, var(--secondary-dark), #047857);
+		}
+
+		.cancel {
+			background: linear-gradient(135deg, var(--danger-color), var(--danger-dark));
+		}
+
+		.cancel:hover {
+			background: linear-gradient(135deg, var(--danger-dark), #b91c1c);
+		}
+
+		/* Responsive Design */
+		@media (max-width: 768px) {
+			body {
+				padding: 1rem;
+			}
+
+			h2 {
+				font-size: 2rem;
+				padding: 1.5rem 1rem 0.5rem;
+			}
+
+			.content {
+				padding: 1rem;
+			}
+
+			.manual-entry .input-group {
+				grid-template-columns: 1fr;
+				gap: 0.75rem;
+			}
+
+			.download-section .input-group {
+				flex-direction: column;
+				align-items: stretch;
+			}
+
+			table,
+			th,
+			td {
+				font-size: 0.75rem;
+				padding: 0.75rem 0.5rem;
+			}
+
+			.toolbar {
+				flex-direction: column;
+				align-items: center;
+			}
+
+			.modal-content {
+				margin: 1rem;
+				padding: 1.5rem;
+			}
+
+			.modal-btns {
+				flex-direction: column;
+			}
+		}
+
+		@media (max-width: 480px) {
+			.date-section h3 {
+				font-size: 1.25rem;
+			}
+
+			.summary {
+				font-size: 1rem;
+			}
+		}
+
+		/* Loading Animation */
+		@keyframes pulse {
+
+			0%,
+			100% {
+				opacity: 1;
+			}
+
+			50% {
+				opacity: 0.5;
+			}
+		}
+
+		.loading {
+			animation: pulse 2s infinite;
+		}
+
+		/* Success Animation */
+		@keyframes success {
+			0% {
+				transform: scale(1);
+			}
+
+			50% {
+				transform: scale(1.05);
+			}
+
+			100% {
+				transform: scale(1);
+			}
+		}
+
+		.success {
+			animation: success 0.6s ease-out;
+		}
+	</style>
 </head>
+
 <body>
+	<div class="container">
+		<h2>📱 Sales Scanner</h2>
 
-<h2>Sales Scanner - v1</h2>
+		<div class="content">
+			<div id="errorBox"></div>
 
-<div id="errorBox"></div>
+			<div class="toolbar">
+				<button id="startBtn">📷 Start QR Scan</button>
+			</div>
 
-<div class="toolbar">
-  <button id="startBtn">Start Scan</button>
-</div>
+			<!-- ---------- Manual Entry ---------- -->
+			<div class="manual-entry">
+				<h3>📝 Manual Entry</h3>
+				<div class="input-group">
+					<input type="text" id="manualPart" placeholder="Enter Part No">
+					<input type="number" step="0.01" id="manualMRP" placeholder="Enter MRP / Price">
+					<button id="addManualBtn">Add Manually</button>
+				</div>
+			</div>
 
-<div id="reader"></div>
+			<div id="reader"></div>
 
-<div class="download-section">
-  <input type="date" id="downloadDate">
-  <button class="calendar-btn" id="downloadBtn">📅 Download Excel</button>
-</div>
+			<div class="download-section">
+				<div class="input-group">
+					<input type="date" id="downloadDate">
+					<button class="calendar-btn" id="downloadBtn">📅 Download Excel</button>
+				</div>
+			</div>
 
-<div id="historyContainer"></div>
+			<div id="historyContainer"></div>
+		</div>
+	</div>
 
-<!-- ---------- Confirmation Modal ---------- -->
-<div id="confirmModal">
-  <div class="modal-content">
-    <h3>Do you want to confirm this scan?</h3>
-    <p id="confirmDetails"></p>
-    <div class="modal-btns">
-      <button class="confirm" id="confirmYes">✅ Confirm</button>
-      <button class="cancel" id="confirmNo">❌ Cancel</button>
-    </div>
-  </div>
-</div>
+	<!-- ---------- Confirmation Modal ---------- -->
+	<div id="confirmModal">
+		<div class="modal-content">
+			<h3>Confirm Entry</h3>
+			<p id="confirmDetails"></p>
+			<div class="modal-btns">
+				<button class="confirm" id="confirmYes">✅ Confirm</button>
+				<button class="cancel" id="confirmNo">❌ Cancel</button>
+			</div>
+		</div>
+	</div>
 
-<script>
-let html5QrcodeScanner;
-let scanning = false;
-let currentScan = null;
+	<script>
+		let html5QrcodeScanner;
+		let scanning = false;
+		let currentScan = null;
 
-// ---------- Utilities ----------
-function formatDate(d) {
-  const [y, m, day] = d.split("-");
-  return `${day}-${m}-${y}`;
-}
-function showError(msg) {
-  const box = document.getElementById('errorBox');
-  box.innerText = msg;
-  box.style.display = 'block';
-  setTimeout(() => box.style.display = 'none', 8000);
-}
+		// ---------- Utilities ----------
+		function formatDate(d) {
+			const [y, m, day] = d.split("-");
+			return `${day}-${m}-${y}`;
+		}
+		function showError(msg) {
+			const box = document.getElementById('errorBox');
+			box.innerText = msg;
+			box.style.display = 'block';
+			setTimeout(() => box.style.display = 'none', 8000);
+		}
 
-// ---------- Parser ----------
-function parseQRData(data) {
-  const parts = data.split('-').map(s => s.trim());
-  if (parts.length < 3) return null;
-  const middle = parts[1];
-  const mrp = parts[2];
-  const firstAlphaIndex = middle.search(/[A-Za-z]/);
-  let partNo = firstAlphaIndex !== -1 ? middle.slice(firstAlphaIndex) : middle.slice(8);
-  return { partNo, mrp };
-}
+		// ---------- Parser ----------
+		function parseQRData(data) {
+			const parts = data.split('-').map(s => s.trim());
+			if (parts.length < 3) return null;
+			const middle = parts[1];
+			const mrp = parts[2];
+			const firstAlphaIndex = middle.search(/[A-Za-z]/);
+			let partNo = firstAlphaIndex !== -1 ? middle.slice(firstAlphaIndex) : middle.slice(8);
+			return { partNo, mrp };
+		}
 
-// ---------- Scanner ----------
-async function startScanner() {
-  if (scanning) return;
-  scanning = true;
-  document.getElementById('reader').style.display = 'block';
-  html5QrcodeScanner = new Html5Qrcode("reader");
+		// ---------- Scanner ----------
+		async function startScanner() {
+			if (scanning) return;
+			scanning = true;
+			document.getElementById('reader').style.display = 'block';
+			html5QrcodeScanner = new Html5Qrcode("reader");
 
-  try {
-    await html5QrcodeScanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      qrCodeMessage => {
-        const result = parseQRData(qrCodeMessage);
-        if (!result) {
-          showError('Invalid QR format: ' + qrCodeMessage);
-          return;
-        }
-        currentScan = result;
-        showConfirmModal(result);
-      },
-      () => {}
-    );
-  } catch (err) {
-    scanning = false;
-    showError("Camera access failed: " + err);
-  }
-}
+			try {
+				await html5QrcodeScanner.start(
+					{ facingMode: "environment" },
+					{ fps: 10, qrbox: 250 },
+					qrCodeMessage => {
+						const result = parseQRData(qrCodeMessage);
+						if (!result) {
+							showError('Invalid QR format: ' + qrCodeMessage);
+							return;
+						}
+						currentScan = result;
+						showConfirmModal(result);
+					},
+					() => { }
+				);
+			} catch (err) {
+				scanning = false;
+				showError("Camera access failed: " + err);
+			}
+		}
 
-// ---------- Confirm Modal ----------
-function showConfirmModal(scan) {
-  document.getElementById("confirmDetails").innerHTML =
-    `<strong>Part No:</strong> ${scan.partNo}<br><strong>MRP:</strong> ₹${scan.mrp}`;
-  document.getElementById("confirmModal").style.display = "flex";
-}
-function hideConfirmModal() {
-  document.getElementById("confirmModal").style.display = "none";
-}
+		// ---------- Manual Add ----------
+		function addManualEntry() {
+			const partNo = document.getElementById('manualPart').value.trim();
+			const mrp = document.getElementById('manualMRP').value.trim();
+			if (!partNo || !mrp) return showError("Please enter both Part No and MRP.");
 
-// ---------- Save Scan ----------
-function saveScan(scan) {
-  const today = new Date().toISOString().split('T')[0];
-  const scans = JSON.parse(localStorage.getItem('scans') || '[]');
-  const existing = scans.find(s => s.partNo === scan.partNo && s.mrp === scan.mrp && s.date === today);
-  if (existing) existing.quantity += 1;
-  else scans.push({ partNo: scan.partNo, mrp: scan.mrp, date: today, quantity: 1 });
-  localStorage.setItem('scans', JSON.stringify(scans));
-  renderHistory();
-}
+			currentScan = { partNo, mrp };
+			showConfirmModal(currentScan);
 
-// ---------- Delete ----------
-function deleteScan(date, partNo, mrp) {
-  if (!confirm(`Delete ${partNo} (₹${mrp}) from ${formatDate(date)}?`)) return;
-  let scans = JSON.parse(localStorage.getItem('scans') || '[]');
-  scans = scans.filter(s => !(s.date === date && s.partNo === partNo && s.mrp === mrp));
-  localStorage.setItem('scans', JSON.stringify(scans));
-  renderHistory();
-}
+			// clear inputs
+			document.getElementById('manualPart').value = '';
+			document.getElementById('manualMRP').value = '';
+		}
 
-// ---------- Render ----------
-function renderHistory() {
-  const scans = JSON.parse(localStorage.getItem('scans') || '[]');
-  const container = document.getElementById('historyContainer');
-  container.innerHTML = '';
+		// ---------- Confirm Modal ----------
+		function showConfirmModal(scan) {
+			document.getElementById("confirmDetails").innerHTML =
+				`<strong>Part No:</strong> ${scan.partNo}<br><strong>MRP:</strong> ₹${scan.mrp}`;
+			document.getElementById("confirmModal").style.display = "flex";
+		}
+		function hideConfirmModal() {
+			document.getElementById("confirmModal").style.display = "none";
+		}
 
-  const grouped = scans.reduce((acc, scan) => {
-    if (!acc[scan.date]) acc[scan.date] = [];
-    acc[scan.date].push(scan);
-    return acc;
-  }, {});
+		// ---------- Save ----------
+		function saveScan(scan) {
+			const today = new Date().toISOString().split('T')[0];
+			const scans = JSON.parse(localStorage.getItem('scans') || '[]');
+			const existing = scans.find(s => s.partNo === scan.partNo && s.mrp === scan.mrp && s.date === today);
+			if (existing) existing.quantity += 1;
+			else scans.push({ partNo: scan.partNo, mrp: scan.mrp, date: today, quantity: 1 });
+			localStorage.setItem('scans', JSON.stringify(scans));
+			renderHistory();
+		}
 
-  const dates = Object.keys(grouped).sort((a,b) => b.localeCompare(a));
+		// ---------- Delete ----------
+		function deleteScan(date, partNo, mrp) {
+			if (!confirm(`Delete ${partNo} (₹${mrp}) from ${formatDate(date)}?`)) return;
+			let scans = JSON.parse(localStorage.getItem('scans') || '[]');
+			scans = scans.filter(s => !(s.date === date && s.partNo === partNo && s.mrp === mrp));
+			localStorage.setItem('scans', JSON.stringify(scans));
+			renderHistory();
+		}
 
-  dates.forEach(date => {
-    const section = document.createElement('div');
-    section.className = 'date-section';
-    const header = document.createElement('h3');
-    header.textContent = formatDate(date);
-    header.style.color = "#1976d2";
-    section.appendChild(header);
+		// ---------- Render ----------
+		function renderHistory() {
+			const scans = JSON.parse(localStorage.getItem('scans') || '[]');
+			const container = document.getElementById('historyContainer');
+			container.innerHTML = '';
 
-    const table = document.createElement('table');
-    table.innerHTML = `
+			const grouped = scans.reduce((acc, scan) => {
+				if (!acc[scan.date]) acc[scan.date] = [];
+				acc[scan.date].push(scan);
+				return acc;
+			}, {});
+
+			const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+			dates.forEach(date => {
+				const section = document.createElement('div');
+				section.className = 'date-section';
+				const header = document.createElement('h3');
+				header.textContent = formatDate(date);
+				header.style.color = "#1976d2";
+				section.appendChild(header);
+
+				const table = document.createElement('table');
+				table.innerHTML = `
       <thead><tr><th>Part No</th><th>MRP</th><th>Qty</th><th>Delete</th></tr></thead>
       <tbody></tbody>`;
-    let total = 0;
-    const tbody = table.querySelector('tbody');
+				let total = 0;
+				const tbody = table.querySelector('tbody');
 
-    grouped[date].forEach(scan => {
-      total += parseFloat(scan.mrp) * scan.quantity;
-      const row = document.createElement('tr');
-      row.innerHTML = `
+				grouped[date].forEach(scan => {
+					total += parseFloat(scan.mrp) * scan.quantity;
+					const row = document.createElement('tr');
+					row.innerHTML = `
         <td>${scan.partNo}</td>
         <td>${scan.mrp}</td>
         <td>${scan.quantity}</td>
         <td><button class="delete-btn" onclick="deleteScan('${scan.date}','${scan.partNo}','${scan.mrp}')">🗑️</button></td>`;
-      tbody.appendChild(row);
-    });
+					tbody.appendChild(row);
+				});
 
-    section.appendChild(table);
-    const summary = document.createElement('div');
-    summary.className = 'summary';
-    summary.innerText = `Total Value: ₹${total.toFixed(2)}`;
-    section.appendChild(summary);
-    container.appendChild(section);
-  });
-}
+				section.appendChild(table);
+				const summary = document.createElement('div');
+				summary.className = 'summary';
+				summary.innerText = `Total Value: ₹${total.toFixed(2)}`;
+				section.appendChild(summary);
+				container.appendChild(section);
+			});
+		}
 
-// ---------- Excel Download ----------
-function downloadExcel() {
-  const scans = JSON.parse(localStorage.getItem('scans') || '[]');
-  if (scans.length === 0) return showError('No data to export.');
+		// ---------- Excel Download ----------
+		function downloadExcel() {
+			const scans = JSON.parse(localStorage.getItem('scans') || '[]');
+			if (scans.length === 0) return showError('No data to export.');
 
-  const selectedDate = document.getElementById('downloadDate').value;
-  const filtered = selectedDate ? scans.filter(s => s.date === selectedDate) : scans;
-  if (filtered.length === 0) return showError('No data for selected date.');
+			const selectedDate = document.getElementById('downloadDate').value;
+			const filtered = selectedDate ? scans.filter(s => s.date === selectedDate) : scans;
+			if (filtered.length === 0) return showError('No data for selected date.');
 
-  const worksheet = XLSX.utils.json_to_sheet(filtered.map(s => ({
-    Date: formatDate(s.date),
-    PartNo: s.partNo,
-    MRP: s.mrp,
-    Quantity: s.quantity
-  })));
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Scans');
-  const filename = selectedDate ? `${formatDate(selectedDate)}.xlsx` : 'All-Scans.xlsx';
-  XLSX.writeFile(workbook, filename);
-}
+			const worksheet = XLSX.utils.json_to_sheet(filtered.map(s => ({
+				Date: formatDate(s.date),
+				PartNo: s.partNo,
+				MRP: s.mrp,
+				Quantity: s.quantity
+			})));
+			const workbook = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(workbook, worksheet, 'Scans');
+			const filename = selectedDate ? `${formatDate(selectedDate)}.xlsx` : 'All-Scans.xlsx';
+			XLSX.writeFile(workbook, filename);
+		}
 
-// ---------- Modal Actions ----------
-document.getElementById("confirmYes").addEventListener("click", async () => {
-  saveScan(currentScan);
-  hideConfirmModal();
-  await html5QrcodeScanner.stop();
-  document.getElementById('reader').style.display = 'none';
-  scanning = false;
-});
+		// ---------- Modal Actions ----------
+		document.getElementById("confirmYes").addEventListener("click", async () => {
+			saveScan(currentScan);
+			hideConfirmModal();
+			if (html5QrcodeScanner) await html5QrcodeScanner.stop();
+			document.getElementById('reader').style.display = 'none';
+			scanning = false;
+		});
+		document.getElementById("confirmNo").addEventListener("click", async () => {
+			hideConfirmModal();
+			if (html5QrcodeScanner) await html5QrcodeScanner.stop();
+			document.getElementById('reader').style.display = 'none';
+			scanning = false;
+		});
 
-document.getElementById("confirmNo").addEventListener("click", async () => {
-  hideConfirmModal();
-  await html5QrcodeScanner.stop();
-  document.getElementById('reader').style.display = 'none';
-  scanning = false;
-});
-
-// ---------- Event Listeners ----------
-document.getElementById('startBtn').addEventListener('click', startScanner);
-document.getElementById('downloadBtn').addEventListener('click', downloadExcel);
-renderHistory();
-</script>
+		// ---------- Event Listeners ----------
+		document.getElementById('startBtn').addEventListener('click', startScanner);
+		document.getElementById('addManualBtn').addEventListener('click', addManualEntry);
+		document.getElementById('downloadBtn').addEventListener('click', downloadExcel);
+		renderHistory();
+	</script>
 </body>
+
 </html>
-
-
-
-<!-- <script src="js/html5-qrcode.min.js"></script>
-  <script src="js/xlsx.full.min.js"></script> -->
