@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Scanner - V1</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; padding: 15px; background: #f4f6f8; color: #333; }
+  h2 { text-align: center; color: #1976d2; margin-bottom: 10px; }
+  button, input[type="date"] { padding: 8px 12px; margin: 5px 0; border-radius: 6px; border: none; cursor: pointer; }
+  button { background: #1976d2; color: white; font-weight: 500; transition: 0.3s; }
+  button:hover { background: #1565c0; }
+  #reader { width: 100%; max-width: 400px; margin: 10px auto; display: none; border-radius: 10px; overflow: hidden; }
+  #errorBox { display: none; background: #ffe5e5; border: 1px solid #ff6b6b; color: #b30000; padding: 10px; border-radius: 6px; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; border-radius: 6px; overflow: hidden; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 14px; }
+  th { background: #e3f2fd; }
+  .date-section { background: #fff; margin-top: 15px; padding: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+  .summary { text-align: right; font-weight: 600; padding-top: 6px; color: #444; }
+  .delete-btn { background: #ff5252; color: white; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
+  .delete-btn:hover { background: #d32f2f; }
+  .toolbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 10px; }
+  .download-section { text-align: center; margin-top: 10px; }
+  .calendar-btn { display: flex; align-items: center; gap: 5px; background: #43a047; }
+  .calendar-btn:hover { background: #388e3c; }
+
+  /* ---------- Modal ---------- */
+  #confirmModal {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); justify-content: center; align-items: center;
+  }
+  .modal-content {
+    background: white; padding: 20px; border-radius: 10px; text-align: center;
+    width: 90%; max-width: 350px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  }
+  .modal-content h3 { margin-bottom: 8px; color: #1976d2; }
+  .modal-btns { display: flex; justify-content: space-between; margin-top: 15px; }
+  .modal-btns button { flex: 1; margin: 0 5px; padding: 10px; font-weight: 600; }
+  .confirm { background: #43a047; }
+  .confirm:hover { background: #388e3c; }
+  .cancel { background: #f44336; }
+  .cancel:hover { background: #d32f2f; }
+
+  @media (max-width: 600px) {
+    table, th, td { font-size: 12px; }
+    .toolbar { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<h2>Sales Scanner - v1</h2>
+
+<div id="errorBox"></div>
+
+<div class="toolbar">
+  <button id="startBtn">Start Scan</button>
+</div>
+
+<div id="reader"></div>
+
+<div class="download-section">
+  <input type="date" id="downloadDate">
+  <button class="calendar-btn" id="downloadBtn">📅 Download Excel</button>
+</div>
+
+<div id="historyContainer"></div>
+
+<!-- ---------- Confirmation Modal ---------- -->
+<div id="confirmModal">
+  <div class="modal-content">
+    <h3>Do you want to confirm this scan?</h3>
+    <p id="confirmDetails"></p>
+    <div class="modal-btns">
+      <button class="confirm" id="confirmYes">✅ Confirm</button>
+      <button class="cancel" id="confirmNo">❌ Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let html5QrcodeScanner;
+let scanning = false;
+let currentScan = null;
+
+// ---------- Utilities ----------
+function formatDate(d) {
+  const [y, m, day] = d.split("-");
+  return `${day}-${m}-${y}`;
+}
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.innerText = msg;
+  box.style.display = 'block';
+  setTimeout(() => box.style.display = 'none', 8000);
+}
+
+// ---------- Parser ----------
+function parseQRData(data) {
+  const parts = data.split('-').map(s => s.trim());
+  if (parts.length < 3) return null;
+  const middle = parts[1];
+  const mrp = parts[2];
+  const firstAlphaIndex = middle.search(/[A-Za-z]/);
+  let partNo = firstAlphaIndex !== -1 ? middle.slice(firstAlphaIndex) : middle.slice(8);
+  return { partNo, mrp };
+}
+
+// ---------- Scanner ----------
+async function startScanner() {
+  if (scanning) return;
+  scanning = true;
+  document.getElementById('reader').style.display = 'block';
+  html5QrcodeScanner = new Html5Qrcode("reader");
+
+  try {
+    await html5QrcodeScanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      qrCodeMessage => {
+        const result = parseQRData(qrCodeMessage);
+        if (!result) {
+          showError('Invalid QR format: ' + qrCodeMessage);
+          return;
+        }
+        currentScan = result;
+        showConfirmModal(result);
+      },
+      () => {}
+    );
+  } catch (err) {
+    scanning = false;
+    showError("Camera access failed: " + err);
+  }
+}
+
+// ---------- Confirm Modal ----------
+function showConfirmModal(scan) {
+  document.getElementById("confirmDetails").innerHTML =
+    `<strong>Part No:</strong> ${scan.partNo}<br><strong>MRP:</strong> ₹${scan.mrp}`;
+  document.getElementById("confirmModal").style.display = "flex";
+}
+function hideConfirmModal() {
+  document.getElementById("confirmModal").style.display = "none";
+}
+
+// ---------- Save Scan ----------
+function saveScan(scan) {
+  const today = new Date().toISOString().split('T')[0];
+  const scans = JSON.parse(localStorage.getItem('scans') || '[]');
+  const existing = scans.find(s => s.partNo === scan.partNo && s.mrp === scan.mrp && s.date === today);
+  if (existing) existing.quantity += 1;
+  else scans.push({ partNo: scan.partNo, mrp: scan.mrp, date: today, quantity: 1 });
+  localStorage.setItem('scans', JSON.stringify(scans));
+  renderHistory();
+}
+
+// ---------- Delete ----------
+function deleteScan(date, partNo, mrp) {
+  if (!confirm(`Delete ${partNo} (₹${mrp}) from ${formatDate(date)}?`)) return;
+  let scans = JSON.parse(localStorage.getItem('scans') || '[]');
+  scans = scans.filter(s => !(s.date === date && s.partNo === partNo && s.mrp === mrp));
+  localStorage.setItem('scans', JSON.stringify(scans));
+  renderHistory();
+}
+
+// ---------- Render ----------
+function renderHistory() {
+  const scans = JSON.parse(localStorage.getItem('scans') || '[]');
+  const container = document.getElementById('historyContainer');
+  container.innerHTML = '';
+
+  const grouped = scans.reduce((acc, scan) => {
+    if (!acc[scan.date]) acc[scan.date] = [];
+    acc[scan.date].push(scan);
+    return acc;
+  }, {});
+
+  const dates = Object.keys(grouped).sort((a,b) => b.localeCompare(a));
+
+  dates.forEach(date => {
+    const section = document.createElement('div');
+    section.className = 'date-section';
+    const header = document.createElement('h3');
+    header.textContent = formatDate(date);
+    header.style.color = "#1976d2";
+    section.appendChild(header);
+
+    const table = document.createElement('table');
+    table.innerHTML = `
+      <thead><tr><th>Part No</th><th>MRP</th><th>Qty</th><th>Delete</th></tr></thead>
+      <tbody></tbody>`;
+    let total = 0;
+    const tbody = table.querySelector('tbody');
+
+    grouped[date].forEach(scan => {
+      total += parseFloat(scan.mrp) * scan.quantity;
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${scan.partNo}</td>
+        <td>${scan.mrp}</td>
+        <td>${scan.quantity}</td>
+        <td><button class="delete-btn" onclick="deleteScan('${scan.date}','${scan.partNo}','${scan.mrp}')">🗑️</button></td>`;
+      tbody.appendChild(row);
+    });
+
+    section.appendChild(table);
+    const summary = document.createElement('div');
+    summary.className = 'summary';
+    summary.innerText = `Total Value: ₹${total.toFixed(2)}`;
+    section.appendChild(summary);
+    container.appendChild(section);
+  });
+}
+
+// ---------- Excel Download ----------
+function downloadExcel() {
+  const scans = JSON.parse(localStorage.getItem('scans') || '[]');
+  if (scans.length === 0) return showError('No data to export.');
+
+  const selectedDate = document.getElementById('downloadDate').value;
+  const filtered = selectedDate ? scans.filter(s => s.date === selectedDate) : scans;
+  if (filtered.length === 0) return showError('No data for selected date.');
+
+  const worksheet = XLSX.utils.json_to_sheet(filtered.map(s => ({
+    Date: formatDate(s.date),
+    PartNo: s.partNo,
+    MRP: s.mrp,
+    Quantity: s.quantity
+  })));
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Scans');
+  const filename = selectedDate ? `${formatDate(selectedDate)}.xlsx` : 'All-Scans.xlsx';
+  XLSX.writeFile(workbook, filename);
+}
+
+// ---------- Modal Actions ----------
+document.getElementById("confirmYes").addEventListener("click", async () => {
+  saveScan(currentScan);
+  hideConfirmModal();
+  await html5QrcodeScanner.stop();
+  document.getElementById('reader').style.display = 'none';
+  scanning = false;
+});
+
+document.getElementById("confirmNo").addEventListener("click", async () => {
+  hideConfirmModal();
+  await html5QrcodeScanner.stop();
+  document.getElementById('reader').style.display = 'none';
+  scanning = false;
+});
+
+// ---------- Event Listeners ----------
+document.getElementById('startBtn').addEventListener('click', startScanner);
+document.getElementById('downloadBtn').addEventListener('click', downloadExcel);
+renderHistory();
+</script>
+</body>
+</html>
+
+
+
+<!-- <script src="js/html5-qrcode.min.js"></script>
+  <script src="js/xlsx.full.min.js"></script> -->
